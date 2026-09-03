@@ -2,6 +2,8 @@ name: Build
 
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -27,3 +29,29 @@ jobs:
             pkhex-gc.dol
             pkhex-gc.elf
           if-no-files-found: error
+
+  # A tag starting with v publishes a GitHub Release with the DOL attached,
+  # so people do not have to dig a build artifact out of a workflow run.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pkhex-gc-dol
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          test -s pkhex-gc.dol
+          gh release create "$TAG" \
+            --title "PKHeX-GC ${TAG#v}" \
+            --notes-file RELEASE-NOTES.md \
+            pkhex-gc.dol pkhex-gc.elf

@@ -120,15 +120,16 @@ The one major feature deliberately left out for now is legality checking.
 
 ## Getting it
 
-You do not need to build PKHeX-GC yourself. Every push automatically produces
-a `.dol`.
+You do not need to build PKHeX-GC yourself.
 
-1. Open [Actions](../../actions).
-2. Click the newest successful green run.
-3. Download the **pkhex-gc-dol** artifact at the bottom.
-4. Unzip it.
-5. Copy `pkhex-gc.dol` to your SD card.
-6. Launch it through Swiss.
+1. Open [Releases](../../releases) and download `pkhex-gc.dol` from the
+   newest one.
+2. Copy it to your SD card.
+3. Launch it through Swiss.
+
+Every push also produces a `.dol` if you want something newer than the last
+release: open [Actions](../../actions), click the newest green run, and
+download the **pkhex-gc-dol** artifact at the bottom.
 
 ## Building
 
