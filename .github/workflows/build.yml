@@ -21,8 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install libogc2
+        run: ./tools/install_libogc2.sh
+
       - name: Build
         env:
+          DEVKITPRO: /opt/devkitpro
           DEVKITPPC: /opt/devkitpro/devkitPPC
         run: ./build.sh --native
 

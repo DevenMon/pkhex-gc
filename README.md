@@ -10,7 +10,7 @@ really possible. Instead, the Generation III save and Pokémon formats have
 been reimplemented in C using PKHeX's source as the reference, with a new
 640×480 interface built specifically for the GameCube.
 
-This is **version 1.0.1**.
+This is **version 1.0.2**.
 
 If PKHeX-GC and desktop PKHeX disagree about something, assume PKHeX is right
 and file a bug here.
@@ -129,7 +129,9 @@ You do not need to build PKHeX-GC yourself.
 
 PKHeX-GC uses whatever video mode your console is set to, so 480i over
 composite, S-Video or RGB SCART works, as does 480p over component and the
-PAL modes. You do not have to configure anything.
+PAL modes. It honours the progressive-scan setting you chose at boot rather
+than guessing from which cable is plugged in. You do not have to configure
+anything.
 
 Every push also produces a `.dol` if you want something newer than the last
 release: open [Actions](../../actions), click the newest green run, and
@@ -144,7 +146,13 @@ download the **pkhex-gc-dol** artifact at the bottom.
 The build script generates the sprite atlas, rebuilds the GBA agent, runs the
 tests, and then builds the GameCube DOL.
 
-If `DEVKITPPC` is set, it uses your local devkitPPC installation.
+PKHeX-GC links against [libogc2](https://github.com/extremscorner/libogc2)
+rather than stock libogc, because only libogc2 picks the video mode from the
+console's own progressive-scan setting. `tools/install_libogc2.sh` installs it
+through devkitPro's package manager, and both build paths run it for you.
+
+If `DEVKITPRO` is set and libogc2 is installed, the script uses your local
+devkitPPC installation.
 
 If Docker is running instead, it builds inside the
 `devkitpro/devkitppc` container.

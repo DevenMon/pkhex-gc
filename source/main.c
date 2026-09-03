@@ -29,7 +29,7 @@
 #include "uinput.h"
 
 #define APP_NAME "PKHeX-GC Gen III"
-#define APP_VERSION "1.0.1"
+#define APP_VERSION "1.0.2"
 #define MAX_ENTRIES 256
 #define MAX_CARD_ENTRIES 64
 #define NAME_LEN 192

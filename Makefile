@@ -3,11 +3,17 @@
 
 .SUFFIXES:
 
-ifeq ($(strip $(DEVKITPPC)),)
-$(error "Please set DEVKITPPC in your environment (devkitPro/devkitPPC)")
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment (devkitPro)")
 endif
 
-include $(DEVKITPPC)/gamecube_rules
+# libogc2 rather than stock libogc, for one reason: VIDEO_GetPreferredMode.
+# Stock libogc picks the video mode from the component-cable detect alone, so
+# it forces 480p on any console with a digital AV cable plugged in whether or
+# not the user actually selected progressive scan - and gives no picture at
+# all when they did not. libogc2 requires SYS_GetProgressiveScan() as well,
+# which is the setting the user chose at boot.
+include $(DEVKITPRO)/libogc2/gamecube_rules
 
 TARGET   := pkhex-gc
 BUILD    := build

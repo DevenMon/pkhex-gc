@@ -1,36 +1,46 @@
-# PKHeX-GC 1.0.1
+# PKHeX-GC 1.0.2
 
-A fix for consoles that are not set to progressive scan.
+The rest of the 480i fix. **If 1.0.1 still gave you a blank screen, this is
+the build to try.**
 
-## Every video mode now works
+## Following the console instead of guessing
 
-1.0 forced the NTSC 480p render mode. On a console that is not running in
-progressive scan — which is the normal case for composite, S-Video and RGB
-SCART — that produced no picture at all. PKHeX-GC started and ran, but the TV
-never showed anything.
+1.0 forced NTSC 480p and showed nothing on a console that was not running in
+progressive scan. 1.0.1 switched to `VIDEO_GetPreferredMode`, which was the
+right call to make — but against stock libogc that function decides from the
+component-cable detect alone:
 
-It now uses whatever mode the console reports, so 480i works, and so do the
-PAL modes. A component cable set to progressive still gets 480p. Nothing needs
-configuring.
+```c
+if (VIDEO_HaveComponentCable()) rmode = &TVNtsc480Prog;
+```
 
-Two details that come with that:
+So plugging in a digital AV cable forced 480p whether or not progressive scan
+was ever switched on, and the blank screen survived on exactly the consoles
+that report a cable. It also refuses progressive to anyone whose detect
+circuit has a fault, however their console is set.
 
-- The interface is still drawn in a 640×480 design space and is scaled onto
-  the framebuffer of the active mode, so every screen stays fully visible
-  rather than being cropped by a shorter or taller framebuffer.
-- Interlaced modes enable the vertical filter, which stops thin horizontal
-  edges — table rules, text stems — from shimmering between fields.
-  Progressive keeps the sharper unfiltered copy.
+PKHeX-GC now links [libogc2](https://github.com/extremscorner/libogc2), whose
+version of the same call also requires `SYS_GetProgressiveScan()` — the
+setting chosen at boot — and picks an interlaced mode otherwise. The video
+mode now follows what the console was actually told to do.
 
-Screenshots taken with the C-stick now follow the real framebuffer size, so a
-PAL capture is the whole PAL frame rather than the top 480 lines of it.
+Thanks to **Extrems** for pointing at the real cause.
 
-Everything else is unchanged from 1.0.
+## Building
+
+libogc2 is now a build requirement. `tools/install_libogc2.sh` installs it
+through devkitPro's package manager, and both `./build.sh` paths run it, so
+there is nothing extra to do by hand.
+
+Everything else is unchanged from 1.0.1: the interface is still drawn in a
+640×480 design space scaled onto the active mode's framebuffer, interlaced
+modes enable the vertical filter to stop thin horizontal edges shimmering,
+and screenshots follow the real framebuffer size.
 
 ---
 
-The first release of PKHeX-GC, a GameCube port of
-[PKHeX](https://github.com/kwsch/PKHeX) for Generation III Pokémon saves.
+PKHeX-GC is a GameCube port of [PKHeX](https://github.com/kwsch/PKHeX) for
+Generation III Pokémon saves.
 
 Copy `pkhex-gc.dol` to your SD card and launch it through Swiss.
 

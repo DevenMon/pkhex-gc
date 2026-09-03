@@ -90,13 +90,19 @@ bool gui_init(GuiContext *g) {
     PAD_Init();
 
     /*
-     * Follow the console rather than forcing a mode.
+     * Follow the console's own setting rather than forcing a mode.
      *
-     * This used to be pinned to TVNtsc480Prog, which meant a console not set
-     * to progressive scan - the normal case for composite, S-Video and RGB
-     * SCART - showed no picture at all. VIDEO_GetPreferredMode reports what
-     * the console is actually configured for, so 480i and the PAL modes work,
-     * and a component cable set to progressive still comes back as 480p.
+     * This was pinned to TVNtsc480Prog, so a console not running progressive
+     * scan - the normal case for composite, S-Video and RGB SCART - showed no
+     * picture at all.
+     *
+     * VIDEO_GetPreferredMode is only the right answer against libogc2, which
+     * is why the Makefile links that rather than stock libogc. Stock libogc
+     * decides from VIDEO_HaveComponentCable() alone: plugging in a digital AV
+     * cable forces 480p whether or not the user ever enabled progressive
+     * scan, so the blank screen survives on exactly the consoles that report
+     * a cable. libogc2 requires SYS_GetProgressiveScan() too - the setting
+     * chosen at boot - and picks an interlaced mode otherwise.
      *
      * The UI is still authored at GUI_W x GUI_H. The viewport below maps that
      * design onto whatever EFB the chosen mode provides, so a taller or

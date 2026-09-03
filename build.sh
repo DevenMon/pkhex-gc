@@ -63,7 +63,9 @@ fi
 
 # --------------------------------------------------------------- DOL build
 
-have_native() { [ -n "${DEVKITPPC:-}" ] && [ -d "${DEVKITPPC:-/nonexistent}" ]; }
+have_native() {
+  [ -n "${DEVKITPRO:-}" ] && [ -f "${DEVKITPRO:-/nonexistent}/libogc2/gamecube_rules" ]
+}
 have_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
 if [ "$MODE" = auto ]; then
@@ -72,7 +74,9 @@ if [ "$MODE" = auto ]; then
   else
     die "No way to build the DOL.
 
-Install devkitPPC and export DEVKITPPC (see https://devkitpro.org/wiki/Getting_Started),
+Install devkitPPC and libogc2, and export DEVKITPRO
+(see https://devkitpro.org/wiki/Getting_Started and
+https://github.com/extremscorner/libogc2#readme),
 or start Docker so this script can use the ${IMAGE} container.
 
 Everything that does not need the GameCube toolchain already passed:
@@ -84,14 +88,16 @@ fi
 
 case "$MODE" in
   native)
-    have_native || die "--native was requested but DEVKITPPC is not set to a real directory."
-    say "Building pkhex-gc.dol with the local devkitPPC ($DEVKITPPC)"
+    have_native || die "--native was requested but DEVKITPRO/libogc2 was not found.
+Install libogc2: https://github.com/extremscorner/libogc2#readme"
+    say "Building pkhex-gc.dol with the local devkitPPC ($DEVKITPRO)"
     make
     ;;
   docker)
     have_docker || die "--docker was requested but the Docker daemon is not reachable."
     say "Building pkhex-gc.dol in $IMAGE"
-    docker run --rm -v "$ROOT:/project" -w /project "$IMAGE" bash -lc 'make'
+    docker run --rm -v "$ROOT:/project" -w /project "$IMAGE" \
+      bash -lc './tools/install_libogc2.sh && make'
     ;;
 esac
 
