@@ -1,0 +1,8 @@
+build/
+*.dol
+*.elf
+*.map
+*.d
+*.o
+assets/cache/
+data/gen3_sprites.bin

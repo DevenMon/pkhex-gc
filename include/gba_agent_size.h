@@ -1,0 +1,4 @@
+#ifndef PKHEX_GC_GBA_AGENT_SIZE_H
+#define PKHEX_GC_GBA_AGENT_SIZE_H
+#define GBA_AGENT_BIN_SIZE 3536u
+#endif
