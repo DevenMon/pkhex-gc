@@ -29,24 +29,30 @@ same here as they do in desktop PKHeX.
 | GameCube Memory Card, Slot A/B | yes | yes |
 | GBA cartridge over a link cable | yes | yes *(untested on hardware)* |
 
-### What we tried and could not get working
+### Using a Game Boy Player? Use GBI
 
-Reading a GBA cartridge *directly through a Game Boy Player*, with no link
-cable, was attempted at length and does not work. The idea was to reach the
-Player over the GameCube's High-Speed Port, power its cartridge slot, wake its
-internal GBA over the Player's serial link, and multiboot PKHeX-GC's own save
-agent into it.
+PKHeX-GC cannot pull a save off a cartridge sitting in a Game Boy Player. If
+that is your setup, use
+**[Game Boy Interface](https://www.gc-forever.com/wiki/index.php?title=Game_Boy_Interface)**
+to dump the save to your SD card, then open that file in PKHeX-GC like any
+other save. GBI does this well and PKHeX-GC does not try to compete with it.
 
-The register side of that got somewhere. The Player's Control register answers,
-and it reliably reports whether a cartridge is inserted and whether it is a Game
-Boy or a Game Boy Advance one. The serial side never did. Across many rounds of
-hardware probing — address maps, ARAM mapping variants, burst lane layouts,
-and thirty different boot/serial strategies — nothing on that bus ever answered
-the GBA multiboot handshake, so the agent could never be uploaded and no save
-was ever read this way.
+We did try. Reading the cartridge directly through the Player — no link cable,
+no GBI — was attempted at length and we could not get it working. The idea was
+to reach the Player over the GameCube's High-Speed Port, power its cartridge
+slot, wake its internal GBA over the Player's serial link, and multiboot
+PKHeX-GC's own save agent into it.
 
-That code has been removed rather than left in as a dead experiment. Reading a
-cartridge needs a DOL-011 link cable.
+Part of that worked. The Player's Control register answers, and it reliably
+reports whether a cartridge is inserted and whether it is a Game Boy or a Game
+Boy Advance one. The serial side never did. Across many rounds of hardware
+probing — address maps, ARAM mapping variants, burst lane layouts, and thirty
+different boot/serial strategies — nothing on that bus ever answered the GBA
+multiboot handshake, so the agent could never be uploaded and no save was ever
+read this way.
+
+That code has been removed rather than left in as a dead experiment. Without
+GBI, reading a cartridge needs a DOL-011 link cable.
 
 PKHeX-GC recognizes the following save formats:
 
@@ -193,18 +199,9 @@ pockets, categories, or whatever larger grouping makes sense for the current
 screen.
 
 That is the entire navigation scheme.
-
-It is also why <img src="assets/buttons/l.svg" alt="L" height="20">
-<img src="assets/buttons/r.svg" alt="R" height="20"> **do nothing.**
-
-The GameCube's L and R buttons are analog triggers. They have a partial-press
-range, can stick, and can sit right around the digital activation threshold.
-Earlier versions used them for paging and coarse adjustment because the stick
-and D-pad were effectively wired through the same four inputs.
-
-That is no longer necessary. The D-pad is handled separately now, so L and R
-have deliberately been left unused. There is even a build test that fails if
-anything gets assigned to them again.
+<img src="assets/buttons/l.svg" alt="L" height="20">
+<img src="assets/buttons/r.svg" alt="R" height="20"> are analog triggers, so
+they are deliberately left unused.
 
 <img src="assets/buttons/b.svg" alt="B" height="20"> **B always means Back.**
 
