@@ -70,6 +70,7 @@ jobs:
             gh release upload "$TAG" pkhex-gc.dol pkhex-gc.elf --clobber
           else
             gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
               --title "PKHeX-GC ${TAG#v}" \
               --notes-file RELEASE-NOTES.md \
               pkhex-gc.dol pkhex-gc.elf
