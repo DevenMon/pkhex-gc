@@ -20,7 +20,9 @@ typedef struct GXRModeObj {
 #define FALSE 0
 #define TRUE 1
 #define VI_DISPLAY_PIX_SZ 2
+#define VI_INTERLACE 0
 #define VI_NON_INTERLACE 1
+#define VI_PROGRESSIVE 2
 #define PAD_BUTTON_UP      0x0001u
 #define PAD_BUTTON_DOWN    0x0002u
 #define PAD_BUTTON_LEFT    0x0004u
@@ -92,6 +94,7 @@ typedef struct GXRModeObj {
 #define SI_ERROR_NO_RESPONSE 0x0008
 #define SI_GBA 0x00040000u
 extern GXRModeObj TVNtsc480Prog;
+extern GXRModeObj TVNtsc480IntDf;
 void VIDEO_Init(void);
 void PAD_Init(void);
 GXRModeObj *VIDEO_GetPreferredMode(void *);
@@ -102,6 +105,7 @@ void VIDEO_SetNextFramebuffer(void *);
 void VIDEO_SetBlack(int);
 void VIDEO_Flush(void);
 void VIDEO_WaitVSync(void);
+u32 VIDEO_GetNextField(void);
 bool SYS_MainLoop(void);
 void PAD_ScanPads(void);
 u32 PAD_ButtonsDown(int);

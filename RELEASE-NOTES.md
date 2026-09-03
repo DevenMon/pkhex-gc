@@ -1,4 +1,33 @@
-# PKHeX-GC 1.0
+# PKHeX-GC 1.0.1
+
+A fix for consoles that are not set to progressive scan.
+
+## Every video mode now works
+
+1.0 forced the NTSC 480p render mode. On a console that is not running in
+progressive scan — which is the normal case for composite, S-Video and RGB
+SCART — that produced no picture at all. PKHeX-GC started and ran, but the TV
+never showed anything.
+
+It now uses whatever mode the console reports, so 480i works, and so do the
+PAL modes. A component cable set to progressive still gets 480p. Nothing needs
+configuring.
+
+Two details that come with that:
+
+- The interface is still drawn in a 640×480 design space and is scaled onto
+  the framebuffer of the active mode, so every screen stays fully visible
+  rather than being cropped by a shorter or taller framebuffer.
+- Interlaced modes enable the vertical filter, which stops thin horizontal
+  edges — table rules, text stems — from shimmering between fields.
+  Progressive keeps the sharper unfiltered copy.
+
+Screenshots taken with the C-stick now follow the real framebuffer size, so a
+PAL capture is the whole PAL frame rather than the top 480 lines of it.
+
+Everything else is unchanged from 1.0.
+
+---
 
 The first release of PKHeX-GC, a GameCube port of
 [PKHeX](https://github.com/kwsch/PKHeX) for Generation III Pokémon saves.

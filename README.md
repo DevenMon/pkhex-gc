@@ -10,7 +10,7 @@ really possible. Instead, the Generation III save and Pokémon formats have
 been reimplemented in C using PKHeX's source as the reference, with a new
 640×480 interface built specifically for the GameCube.
 
-This is **version 1.0**.
+This is **version 1.0.1**.
 
 If PKHeX-GC and desktop PKHeX disagree about something, assume PKHeX is right
 and file a bug here.
@@ -126,6 +126,10 @@ You do not need to build PKHeX-GC yourself.
    newest one.
 2. Copy it to your SD card.
 3. Launch it through Swiss.
+
+PKHeX-GC uses whatever video mode your console is set to, so 480i over
+composite, S-Video or RGB SCART works, as does 480p over component and the
+PAL modes. You do not have to configure anything.
 
 Every push also produces a `.dol` if you want something newer than the last
 release: open [Actions](../../actions), click the newest green run, and

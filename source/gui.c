@@ -89,9 +89,22 @@ bool gui_init(GuiContext *g) {
     VIDEO_Init();
     PAD_Init();
 
-    /* Fixed 480p by design. This avoids inheriting a 240p/480i EFB size from
-     * a launcher and then drawing a 640x480 UI into a smaller framebuffer. */
-    g->rmode = &TVNtsc480Prog;
+    /*
+     * Follow the console rather than forcing a mode.
+     *
+     * This used to be pinned to TVNtsc480Prog, which meant a console not set
+     * to progressive scan - the normal case for composite, S-Video and RGB
+     * SCART - showed no picture at all. VIDEO_GetPreferredMode reports what
+     * the console is actually configured for, so 480i and the PAL modes work,
+     * and a component cable set to progressive still comes back as 480p.
+     *
+     * The UI is still authored at GUI_W x GUI_H. The viewport below maps that
+     * design onto whatever EFB the chosen mode provides, so a taller or
+     * shorter framebuffer scales the interface instead of cropping it.
+     */
+    g->rmode = VIDEO_GetPreferredMode(NULL);
+    if (!g->rmode) g->rmode = &TVNtsc480IntDf;
+    const bool interlaced = (g->rmode->viTVMode & 3u) == VI_INTERLACE;
 
     g->xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(g->rmode));
     g->xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(g->rmode));
@@ -108,15 +121,26 @@ bool gui_init(GuiContext *g) {
     VIDEO_Flush();
     VIDEO_WaitVSync();
     if (g->rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
+    else while (VIDEO_GetNextField()) VIDEO_WaitVSync();
 
     GX_Init(g->fifo, FIFO_SIZE);
     GX_SetCopyClear((GXColor){216, 232, 246, 255}, 0x00ffffff);
-    GX_SetViewport(0.0f, 0.0f, 640.0f, 480.0f, 0.0f, 1.0f);
-    GX_SetScissor(0, 0, 640, 480);
-    GX_SetDispCopySrc(0, 0, 640, 480);
-    GX_SetDispCopyDst(640, 480);
-    GX_SetCopyFilter(GX_FALSE, g->rmode->sample_pattern, GX_FALSE, g->rmode->vfilter);
-    GX_SetFieldMode(GX_FALSE, GX_DISABLE);
+
+    /* An interlaced mode copies a full-height EFB down into a half-height
+     * field, which is what the Y scale factor describes. */
+    const u32 xfb_height = GX_SetDispCopyYScale(
+        GX_GetYScaleFactor((u16)g->rmode->efbHeight, (u16)g->rmode->xfbHeight));
+    GX_SetViewport(0.0f, 0.0f, (f32)g->rmode->fbWidth, (f32)g->rmode->efbHeight, 0.0f, 1.0f);
+    GX_SetScissor(0, 0, g->rmode->fbWidth, g->rmode->efbHeight);
+    GX_SetDispCopySrc(0, 0, (u16)g->rmode->fbWidth, (u16)g->rmode->efbHeight);
+    GX_SetDispCopyDst((u16)g->rmode->fbWidth, (u16)xfb_height);
+    /* The vertical filter is what keeps thin horizontal edges - table rules,
+     * text stems - from shimmering on 480i. A progressive mode has no field
+     * flicker to remove, so it keeps the sharper unfiltered copy. */
+    GX_SetCopyFilter(g->rmode->aa, g->rmode->sample_pattern,
+                     interlaced ? GX_TRUE : GX_FALSE, g->rmode->vfilter);
+    GX_SetFieldMode(g->rmode->field_rendering,
+                    (g->rmode->viHeight == 2 * g->rmode->xfbHeight) ? GX_ENABLE : GX_DISABLE);
     GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
     GX_SetCullMode(GX_CULL_NONE);
     GX_SetDispCopyGamma(GX_GM_1_0);
@@ -132,7 +156,7 @@ bool gui_init(GuiContext *g) {
     GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 
     Mtx44 projection;
-    guOrtho(projection, 0.0f, 479.0f, 0.0f, 639.0f, 0.0f, 300.0f);
+    guOrtho(projection, 0.0f, GUI_H - 1.0f, 0.0f, GUI_W - 1.0f, 0.0f, 300.0f);
     GX_LoadProjectionMtx(projection, GX_ORTHOGRAPHIC);
     Mtx model;
     guMtxIdentity(model);
@@ -183,8 +207,8 @@ bool gui_init(GuiContext *g) {
 void gui_begin(GuiContext *g) {
     active_gui = g;
     g->pipeline = GUI_PIPE_NONE;
-    GX_SetViewport(0.0f, 0.0f, 640.0f, 480.0f, 0.0f, 1.0f);
-    GX_SetScissor(0, 0, 640, 480);
+    GX_SetViewport(0.0f, 0.0f, (f32)g->rmode->fbWidth, (f32)g->rmode->efbHeight, 0.0f, 1.0f);
+    GX_SetScissor(0, 0, g->rmode->fbWidth, g->rmode->efbHeight);
     GX_SetCopyClear((GXColor){216, 232, 246, 255}, 0x00ffffff);
     GX_InvVtxCache();
     GX_InvalidateTexAll();
@@ -455,11 +479,16 @@ static void yuv_to_rgb(uint8_t y, uint8_t u, uint8_t v, uint8_t *bgr) {
 }
 
 bool gui_screenshot_png(GuiContext *g, const char *path) {
-    if (!g || !path || !*path || !g->xfb[0] || !g->xfb[1]) return false;
+    if (!g || !path || !*path || !g->xfb[0] || !g->xfb[1] || !g->rmode) return false;
     FILE *f = fopen(path, "wb");
     if (!f) return false;
 
-    enum { W=640, H=480, ROW=W*3 };
+    /* Whatever is really in the framebuffer, which is not 640x480 in every
+     * video mode. Widths are even in all of them, so the YUY2 pairing holds. */
+    const int W = (int)g->rmode->fbWidth;
+    const int H = (int)g->rmode->xfbHeight;
+    const int ROW = W * 3;
+    if (W <= 0 || H <= 0 || (W & 1)) { fclose(f); return false; }
     uint8_t *rgb = (uint8_t *)malloc((size_t)ROW * H);
     if (!rgb) { fclose(f); return false; }
 

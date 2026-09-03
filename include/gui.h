@@ -5,8 +5,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* The UI is authored in a fixed 640x480 coordinate system. v0.4 deliberately
- * uses the standard NTSC 480p render mode so GX, EFB and XFB are all 640x480. */
+/* The UI is authored in a fixed 640x480 coordinate system. The render mode is
+ * whatever the console is set to - 480i, 480p, PAL - and gui_init scales this
+ * design space onto that mode's framebuffer. */
 #define GUI_W 640.0f
 #define GUI_H 480.0f
 
