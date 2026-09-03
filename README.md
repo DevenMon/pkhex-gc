@@ -37,8 +37,8 @@ that is your setup, use
 to dump the save to your SD card, then open that file in PKHeX-GC like any
 other save. GBI does this well and PKHeX-GC does not try to compete with it.
 
-We did try. Reading the cartridge directly through the Player — no link cable,
-no GBI — was attempted at length and we could not get it working. The idea was
+I did try. Reading the cartridge directly through the Player — no link cable,
+no GBI — was attempted at length and I could not get it working. The idea was
 to reach the Player over the GameCube's High-Speed Port, power its cartridge
 slot, wake its internal GBA over the Player's serial link, and multiboot
 PKHeX-GC's own save agent into it.
@@ -331,8 +331,8 @@ Read a cartridge before writing one, and keep the SD backup PKHeX-GC makes.
 
 ## Contributors
 
-PKHeX-GC is written by **DevenMon** and **Claude**. There are no other
-contributors.
+PKHeX-GC is written by **DevenMon**, with the help of **Claude** and
+**ChatGPT**. There are no other contributors.
 
 ## Credits
 
