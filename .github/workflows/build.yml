@@ -4,6 +4,8 @@ on:
   push:
     branches: ['**']
     tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -30,11 +32,13 @@ jobs:
             pkhex-gc.elf
           if-no-files-found: error
 
-  # A tag starting with v publishes a GitHub Release with the DOL attached,
-  # so people do not have to dig a build artifact out of a workflow run.
+  # A GitHub Release gets the DOL attached to it, so people do not have to dig
+  # a build artifact out of a workflow run. This covers both ways of making
+  # one: pushing a v* tag from a clone, and publishing a release from the web
+  # UI (which creates the tag itself).
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -45,13 +49,19 @@ jobs:
         with:
           name: pkhex-gc-dol
 
+      # Create the release if the tag arrived on its own, or attach the build
+      # to the release that already exists if the web UI made it first.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           test -s pkhex-gc.dol
-          gh release create "$TAG" \
-            --title "PKHeX-GC ${TAG#v}" \
-            --notes-file RELEASE-NOTES.md \
-            pkhex-gc.dol pkhex-gc.elf
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" pkhex-gc.dol pkhex-gc.elf --clobber
+          else
+            gh release create "$TAG" \
+              --title "PKHeX-GC ${TAG#v}" \
+              --notes-file RELEASE-NOTES.md \
+              pkhex-gc.dol pkhex-gc.elf
+          fi
