@@ -7,6 +7,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Attach this build to an existing release, e.g. v1.0. Leave blank to only build.'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -33,12 +38,16 @@ jobs:
           if-no-files-found: error
 
   # A GitHub Release gets the DOL attached to it, so people do not have to dig
-  # a build artifact out of a workflow run. This covers both ways of making
-  # one: pushing a v* tag from a clone, and publishing a release from the web
-  # UI (which creates the tag itself).
+  # a build artifact out of a workflow run. Three ways in: a pushed v* tag,
+  # publishing a release from the web UI, and running this workflow by hand
+  # with release_tag set, which is the way to fix up a release whose own run
+  # failed or predates this job.
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      || github.event_name == 'release'
+      || inputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -54,7 +63,7 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           test -s pkhex-gc.dol
           if gh release view "$TAG" >/dev/null 2>&1; then
