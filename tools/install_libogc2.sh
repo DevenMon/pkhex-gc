@@ -26,6 +26,26 @@ fi
 # The signing key for Extrems' package repository.
 KEY=C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE
 
+# pacman -Sy synchronises every configured repository, so a hiccup on any of
+# them - including devkitPro's own, which rate-limits CI with a 403 - fails
+# the install even when the repository we actually need is fine. Keyservers
+# are no more reliable. Neither is worth failing a build over, so retry.
+retry() {
+  n=1
+  delay=5
+  while true; do
+    if "$@"; then return 0; fi
+    if [ "$n" -ge 5 ]; then
+      echo "install_libogc2.sh: '$*' failed after $n attempts." >&2
+      return 1
+    fi
+    echo "install_libogc2.sh: '$*' failed (attempt $n); retrying in ${delay}s..." >&2
+    sleep "$delay"
+    n=$((n + 1))
+    delay=$((delay * 2))
+  done
+}
+
 PACMAN=$(command -v dkp-pacman || command -v pacman || true)
 KEYTOOL=$(command -v dkp-pacman-key || command -v pacman-key || true)
 if [ -z "$PACMAN" ] || [ -z "$KEYTOOL" ]; then
@@ -37,7 +57,7 @@ fi
 CONF="$DEVKITPRO/pacman/etc/pacman.conf"
 [ -f "$CONF" ] || CONF=/etc/pacman.conf
 
-"$KEYTOOL" --recv-keys "$KEY" --keyserver keyserver.ubuntu.com
+retry "$KEYTOOL" --recv-keys "$KEY" --keyserver keyserver.ubuntu.com
 "$KEYTOOL" --lsign-key "$KEY"
 
 if ! grep -q '^\[libogc2-devkitpro\]' "$CONF"; then
@@ -51,7 +71,7 @@ fi
 
 # libogc2-libfat rather than libogc2-libdvm: the FAT API and this project's
 # use of it are unchanged, and it avoids exFAT entirely.
-"$PACMAN" -Sy --noconfirm libogc2 libogc2-libfat
+retry "$PACMAN" -Sy --noconfirm libogc2 libogc2-libfat
 
 [ -f "$RULES" ] || { echo "install_libogc2.sh: $RULES still missing after install." >&2; exit 1; }
 echo "libogc2 installed at $DEVKITPRO/libogc2"
