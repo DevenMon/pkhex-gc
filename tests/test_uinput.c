@@ -197,6 +197,45 @@ static void test_coarse_never_appears_without_a_direction(void)
     printf("  a shoulder press is not a coarse step\n");
 }
 
+/*
+ * The bug this guards: each stick axis was thresholded on its own, so a lean
+ * down-and-slightly-right reported DOWN and RIGHT together. On the inventory
+ * screen up/down move the cursor and left/right edit the value under it, so
+ * scrolling a list rewrote the entries it passed.
+ */
+static void test_a_diagonal_stick_is_one_direction(void)
+{
+    /* Straight pushes still read as themselves. */
+    assert(ui_stick_direction(0, 90) == UI_STICK_UP);
+    assert(ui_stick_direction(0, -90) == UI_STICK_DOWN);
+    assert(ui_stick_direction(-90, 0) == UI_STICK_LEFT);
+    assert(ui_stick_direction(90, 0) == UI_STICK_RIGHT);
+    printf("  a straight push reads as its own direction\n");
+
+    /* The grip that caused the damage: mostly down, a little sideways. */
+    assert(ui_stick_direction(45, -90) == UI_STICK_DOWN);
+    assert(ui_stick_direction(-45, -90) == UI_STICK_DOWN);
+    assert(ui_stick_direction(45, 90) == UI_STICK_UP);
+    printf("  a lean off-axis is only the axis it leans along\n");
+
+    /* Never two at once, over the whole square. */
+    for (int x = -128; x < 128; ++x) {
+        for (int y = -128; y < 128; ++y) {
+            const uint32_t d = ui_stick_direction(x, y);
+            assert((d & ~UI_STICK_ANY) == 0u);
+            assert(d == 0u || d == UI_STICK_UP || d == UI_STICK_DOWN ||
+                   d == UI_STICK_LEFT || d == UI_STICK_RIGHT);
+        }
+    }
+    printf("  no stick position produces two directions at once\n");
+
+    /* Centre and the dead zone stay silent. */
+    assert(ui_stick_direction(0, 0) == 0u);
+    assert(ui_stick_direction(39, 39) == 0u);
+    assert(ui_stick_direction(-39, 39) == 0u);
+    printf("  centre and the dead zone report nothing\n");
+}
+
 int main(void)
 {
     test_press_and_release();
@@ -210,6 +249,7 @@ int main(void)
     test_the_two_repeat_on_their_own_clocks();
     test_a_screen_change_blocks_a_held_stick();
     test_coarse_never_appears_without_a_direction();
+    test_a_diagonal_stick_is_one_direction();
     printf("controller input tests: PASS\n");
     return 0;
 }

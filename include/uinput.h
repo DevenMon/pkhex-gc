@@ -30,6 +30,25 @@
 #define UI_STICK_RIGHT 0x00080000u
 #define UI_STICK_ANY   (UI_STICK_UP | UI_STICK_DOWN | UI_STICK_LEFT | UI_STICK_RIGHT)
 
+/* How far the stick must leave centre before it counts as a direction. */
+#define UI_STICK_THRESHOLD 40
+
+/*
+ * One stick position, as at most one direction.
+ *
+ * Each axis used to be tested on its own, so a diagonal reported two
+ * directions at once. On a screen that navigates with up/down and edits the
+ * value under the cursor with left/right - the inventory, the Pokemon editor -
+ * that meant one lean off-axis both moved the cursor and changed the value it
+ * landed on. Scrolling a list quietly rewrote it.
+ *
+ * The gate on a GameCube stick is octagonal and this threshold is a third of
+ * full deflection, so those diagonals are not an unusual grip; they are the
+ * normal way a thumb pushes down. The larger axis therefore wins outright, and
+ * a perfect diagonal yields nothing rather than guessing.
+ */
+uint32_t ui_stick_direction(int x, int y);
+
 /*
  * Set on a frame whose direction came from the D-pad rather than the stick.
  *

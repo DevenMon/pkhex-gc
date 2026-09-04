@@ -10,7 +10,7 @@ really possible. Instead, the Generation III save and Pokémon formats have
 been reimplemented in C using PKHeX's source as the reference, with a new
 640×480 interface built specifically for the GameCube.
 
-This is **version 1.0.2**.
+This is **version 1.0.3**.
 
 If PKHeX-GC and desktop PKHeX disagree about something, assume PKHeX is right
 and file a bug here.

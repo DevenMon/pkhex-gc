@@ -32,6 +32,14 @@ typedef enum Gen3SaveKind {
  */
 const char *gen3_item_name_for(Gen3SaveKind kind, uint16_t item_id);
 
+/*
+ * Move an item id by `step` places for a save of this kind, clamped at both
+ * ends. Colosseum and XD items live at 500 and up while 377..499 are not items
+ * at all, so this walks the two ranges as one list rather than treating the id
+ * as a number to add to - which used to clamp every GameCube item down to 376.
+ */
+uint16_t gen3_item_id_step(Gen3SaveKind kind, uint16_t item_id, int direction, unsigned step);
+
 typedef struct Gen3AnySave {
     Gen3SaveKind kind;
     const uint8_t *input;

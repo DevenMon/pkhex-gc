@@ -126,6 +126,58 @@ static void test_every_name_is_printable_ascii(void)
     printf("  all %u names are printable ASCII, which is all the font has\n", checked);
 }
 
+/*
+ * The bug this guards: the inventory editor clamped every item id to 0..376,
+ * the cartridge range. Colosseum and XD keep their own items at 500 and up, so
+ * one press on any of them - every key item, cologne and disc - clamped it to
+ * 376 and the item was destroyed.
+ */
+static void test_item_ids_step_across_both_ranges(void)
+{
+    /* A cartridge item steps normally in every game. */
+    assert(gen3_item_id_step(GEN3_KIND_GBA, 100, +1, 1) == 101);
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 100, -1, 1) == 99);
+    assert(gen3_item_id_step(GEN3_KIND_XD, 100, +1, 10) == 110);
+
+    /* The cartridge range still ends where it ends on a cartridge save. */
+    assert(gen3_item_id_step(GEN3_KIND_GBA, 376, +1, 1) == 376);
+    assert(gen3_item_id_step(GEN3_KIND_GBA, 0, -1, 1) == 0);
+    printf("  a cartridge item id steps by one and stops at the ends\n");
+
+    /* Crossing the gap: 377..499 are not items, so stepping skips them. */
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 376, +1, 1) == 500);
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 500, -1, 1) == 376);
+    assert(gen3_item_id_step(GEN3_KIND_XD, 376, +1, 1) == 500);
+    assert(gen3_item_id_step(GEN3_KIND_XD, 500, -1, 1) == 376);
+    printf("  stepping crosses the dead range instead of landing in it\n");
+
+    /* Each game stops at the end of its own list. */
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 547, +1, 1) == 547);
+    assert(gen3_item_id_step(GEN3_KIND_XD, 593, +1, 1) == 593);
+    /* XD has items Colosseum does not, and Colosseum cannot reach them. */
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 540, +1, 100) == 547);
+    assert(gen3_item_id_step(GEN3_KIND_XD, 540, +1, 100) == 593);
+    printf("  each game stops at the end of its own item list\n");
+
+    /* A GameCube item is never dragged down into the cartridge range, which is
+     * exactly what the old clamp did. */
+    for (uint16_t id = 500; id <= 547; ++id) {
+        assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, id, +1, 1) >= 500);
+        const uint16_t back = gen3_item_id_step(GEN3_KIND_COLOSSEUM, id, -1, 1);
+        assert(back >= 500 || back == 376);
+    }
+    printf("  no Colosseum item id is clamped into the cartridge range\n");
+
+    /* A cartridge save cannot reach the GameCube items at all. */
+    assert(gen3_item_id_step(GEN3_KIND_GBA, 376, +1, 1000) == 376);
+
+    /* An id already in the dead range, which a damaged save can hold, resolves
+     * to the nearest real item rather than wandering further in. */
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 400, +1, 1) == 500);
+    assert(gen3_item_id_step(GEN3_KIND_COLOSSEUM, 400, -1, 1) == 375);
+    printf("  an id in the dead range resolves back to a real item\n");
+}
+
 int main(void)
 {
     test_counts();
@@ -136,6 +188,7 @@ int main(void)
     test_species_use_the_internal_index();
     test_decorations();
     test_every_name_is_printable_ascii();
+    test_item_ids_step_across_both_ranges();
     printf("name table tests: PASS\n");
     return 0;
 }

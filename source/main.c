@@ -29,7 +29,7 @@
 #include "uinput.h"
 
 #define APP_NAME "PKHeX-GC Gen III"
-#define APP_VERSION "1.0.2"
+#define APP_VERSION "1.0.3"
 #define MAX_ENTRIES 256
 #define MAX_CARD_ENTRIES 64
 #define NAME_LEN 192
@@ -4057,7 +4057,7 @@ static void adjust_inventory(int direction, bool coarse) {
     if(!gen3_any_get_item_slot(&parsed_save,inventory_pocket,inventory_slot,&it)) return;
     const long long step=coarse?10:1;
     const long long max_qty=gen3_any_pocket_max_quantity(&parsed_save,inventory_pocket);
-    if(inventory_field==0) it.item_id=(uint16_t)clamp_ll((long long)it.item_id+(long long)direction*step,0,376);
+    if(inventory_field==0) it.item_id=gen3_item_id_step(parsed_save.kind,it.item_id,direction,(unsigned)step);
     else it.quantity=(uint16_t)clamp_ll((long long)it.quantity+(long long)direction*step,0,max_qty);
     if(gen3_any_set_item_slot(&parsed_save,inventory_pocket,inventory_slot,it.item_id,it.quantity)) save_dirty=true;
 }
@@ -4895,10 +4895,7 @@ static u32 poll_input(void) {
         s8 sy = PAD_StickY(port);
         s8 cx = PAD_SubStickX(port);
         s8 cy = PAD_SubStickY(port);
-        if (sx <= -40) held |= UI_STICK_LEFT;
-        if (sx >=  40) held |= UI_STICK_RIGHT;
-        if (sy >=  40) held |= UI_STICK_UP;
-        if (sy <= -40) held |= UI_STICK_DOWN;
+        held |= ui_stick_direction(sx, sy);
         /* A deliberate C-stick movement is a screenshot gesture. A 55-count
          * threshold is high enough to ignore normal analog center noise. */
         if (cx <= -55 || cx >= 55 || cy <= -55 || cy >= 55)

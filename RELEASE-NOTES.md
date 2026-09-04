@@ -1,41 +1,39 @@
-# PKHeX-GC 1.0.2
+# PKHeX-GC 1.0.3
 
-The rest of the 480i fix. **If 1.0.1 still gave you a blank screen, this is
-the build to try.**
+Two inventory bugs, both of which destroyed data. **If you have edited a
+Colosseum or XD inventory in an earlier build, check it against your backup.**
 
-## Following the console instead of guessing
+## Scrolling a list no longer edits it
 
-1.0 forced NTSC 480p and showed nothing on a console that was not running in
-progressive scan. 1.0.1 switched to `VIDEO_GetPreferredMode`, which was the
-right call to make — but against stock libogc that function decides from the
-component-cable detect alone:
+Each analog stick axis was tested on its own, so pushing the stick down and
+even slightly sideways reported **down and right at the same time**. On the
+inventory screen up and down move the cursor while left and right change the
+value under it — so scrolling through a pocket quietly rewrote the entries it
+passed. The stick's gate is octagonal and the threshold was a third of full
+deflection, so this was not an unusual grip; it is how a thumb normally pushes
+down.
 
-```c
-if (VIDEO_HaveComponentCable()) rmode = &TVNtsc480Prog;
-```
+The stick now reports at most one direction: the axis it leans along wins
+outright. The D-pad was never affected — both of its directions mean
+navigation, never a value change.
 
-So plugging in a digital AV cable forced 480p whether or not progressive scan
-was ever switched on, and the blank screen survived on exactly the consoles
-that report a cable. It also refuses progressive to anyone whose detect
-circuit has a fault, however their console is set.
+## Colosseum and XD items are no longer destroyed
 
-PKHeX-GC now links [libogc2](https://github.com/extremscorner/libogc2), whose
-version of the same call also requires `SYS_GetProgressiveScan()` — the
-setting chosen at boot — and picks an interlaced mode otherwise. The video
-mode now follows what the console was actually told to do.
+Item ids are two ranges. Every game shares the cartridge items at 0–376, and
+Colosseum and XD keep their own — every key item, cologne and disc — at 500 and
+up, with 377–499 meaning nothing at all.
 
-Thanks to **Extrems** for pointing at the real cause.
+The editor clamped to 0–376 regardless of the save. So a single press on any
+Colosseum or XD item above 500 dropped it to 376, and the item was gone.
+Combined with the bug above, scrolling a Colosseum pocket was enough to do it
+without ever pressing sideways deliberately.
 
-## Building
+Stepping now walks both ranges as one list: every id stays reachable, the dead
+range in between is skipped rather than landed on, and each game stops at the
+end of its own item list.
 
-libogc2 is now a build requirement. `tools/install_libogc2.sh` installs it
-through devkitPro's package manager, and both `./build.sh` paths run it, so
-there is nothing extra to do by hand.
-
-Everything else is unchanged from 1.0.1: the interface is still drawn in a
-640×480 design space scaled onto the active mode's framebuffer, interlaced
-modes enable the vertical filter to stop thin horizontal edges shimmering,
-and screenshots follow the real framebuffer size.
+Both fixes have regression tests that were confirmed to fail against the old
+code.
 
 ---
 

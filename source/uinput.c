@@ -1,5 +1,21 @@
 #include "uinput.h"
 
+uint32_t ui_stick_direction(int x, int y)
+{
+    const int ax = x < 0 ? -x : x;
+    const int ay = y < 0 ? -y : y;
+
+    /* Neither axis far enough out to mean anything. */
+    if (ax < UI_STICK_THRESHOLD && ay < UI_STICK_THRESHOLD) return 0u;
+
+    /* A dead heat is a diagonal held exactly on the gate corner. Reporting
+     * both is what caused the damage; reporting either would be a guess. */
+    if (ax == ay) return 0u;
+
+    if (ay > ax) return y > 0 ? UI_STICK_UP : UI_STICK_DOWN;
+    return x > 0 ? UI_STICK_RIGHT : UI_STICK_LEFT;
+}
+
 uint32_t ui_input_step(UiInput *in, uint32_t edges, uint32_t held)
 {
     uint32_t down = edges;

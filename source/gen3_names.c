@@ -471,6 +471,47 @@ const char *gen3_item_name_for(Gen3SaveKind kind, uint16_t item_id) {
     return gen3_item_name(item_id);
 }
 
+/*
+ * Stepping an item id, for a save of a given kind.
+ *
+ * The ids are not one range. Every game shares the cartridge items at 0..376,
+ * and Colosseum and XD put their own - the key items, the colognes, the discs -
+ * at 500 and up, leaving 377..499 meaning nothing at all.
+ *
+ * The inventory editor used to clamp to 0..376 regardless of kind, so a single
+ * press on any Colosseum key item dropped it from 500-something to 376 and the
+ * item was gone. Walking the two ranges as one list keeps every id reachable,
+ * never lands on one that is not an item, and cannot destroy the id it started
+ * from.
+ */
+static unsigned item_id_ordinal_max(Gen3SaveKind kind) {
+    if (kind == GEN3_KIND_COLOSSEUM) return COUNT(item_names) - 1u + COUNT(colosseum_item_names);
+    if (kind == GEN3_KIND_XD) return COUNT(item_names) - 1u + COUNT(xd_item_names);
+    return COUNT(item_names) - 1u;
+}
+
+/* Position of an id in that combined list. An id in the dead range, which a
+ * corrupt save can hold, answers with the last cartridge item. */
+static unsigned item_id_to_ordinal(uint16_t item_id) {
+    if (item_id < COUNT(item_names)) return item_id;
+    if (item_id < CXD_ITEM_BASE) return COUNT(item_names) - 1u;
+    return COUNT(item_names) + ((unsigned)item_id - CXD_ITEM_BASE);
+}
+
+static uint16_t item_id_from_ordinal(unsigned ordinal) {
+    if (ordinal < COUNT(item_names)) return (uint16_t)ordinal;
+    return (uint16_t)(CXD_ITEM_BASE + (ordinal - COUNT(item_names)));
+}
+
+uint16_t gen3_item_id_step(Gen3SaveKind kind, uint16_t item_id, int direction, unsigned step) {
+    const unsigned last = item_id_ordinal_max(kind);
+    long long ordinal = (long long)item_id_to_ordinal(item_id) +
+                        (long long)direction * (long long)step;
+    if (ordinal < 0) ordinal = 0;
+    if (ordinal > (long long)last) ordinal = (long long)last;
+    return item_id_from_ordinal((unsigned)ordinal);
+}
+
 const char *gen3_decoration_name(uint8_t decoration_id) {
     return decoration_id < COUNT(decoration_names) ? decoration_names[decoration_id] : "???";
 }
