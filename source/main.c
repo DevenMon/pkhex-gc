@@ -173,6 +173,12 @@ static Gen3Pocket inventory_pocket = GEN3_POCKET_ITEMS;
 static unsigned inventory_slot;
 static unsigned inventory_field; /* 0=item id, 1=quantity */
 
+/* libogc2 calls the memory-card work area CARD_WORKAREA; stock libogc calls
+ * it CARD_WORKAREA_SIZE. Both name the same 40 KiB buffer CARD_Init needs. */
+#ifndef CARD_WORKAREA_SIZE
+#define CARD_WORKAREA_SIZE CARD_WORKAREA
+#endif
+
 static uint8_t card_work_a[CARD_WORKAREA_SIZE] ATTRIBUTE_ALIGN(32);
 static uint8_t card_work_b[CARD_WORKAREA_SIZE] ATTRIBUTE_ALIGN(32);
 
