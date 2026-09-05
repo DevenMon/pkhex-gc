@@ -71,7 +71,16 @@ fi
 
 # libogc2-libfat rather than libogc2-libdvm: the FAT API and this project's
 # use of it are unchanged, and it avoids exFAT entirely.
-retry "$PACMAN" -Sy --noconfirm libogc2 libogc2-libfat
+if ! retry "$PACMAN" -Sy --noconfirm libogc2 libogc2-libfat; then
+  # -Sy refuses to proceed unless every configured repository refreshes, and
+  # devkitPro's own answers CI with a 403 often enough to stop a release -
+  # while the libogc2 repository beside it downloads perfectly. The container
+  # already ships devkitPro's databases, and a failed refresh still commits
+  # the ones that did arrive, so the libogc2 database is there by now. Install
+  # from what is on disk rather than demanding the network agree twice.
+  echo "install_libogc2.sh: refresh failed; installing from the synced databases." >&2
+  retry "$PACMAN" -S --noconfirm libogc2 libogc2-libfat
+fi
 
 [ -f "$RULES" ] || { echo "install_libogc2.sh: $RULES still missing after install." >&2; exit 1; }
 echo "libogc2 installed at $DEVKITPRO/libogc2"
