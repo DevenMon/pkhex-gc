@@ -71,6 +71,9 @@ jobs:
         run: |
           test -s pkhex-gc.dol
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # RELEASE-NOTES.md is the source of truth for the body, so a
+            # re-run corrects notes that were wrong rather than only the DOL.
+            gh release edit "$TAG" --notes-file RELEASE-NOTES.md
             gh release upload "$TAG" pkhex-gc.dol pkhex-gc.elf --clobber
           else
             gh release create "$TAG" \
