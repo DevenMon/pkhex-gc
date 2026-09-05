@@ -61,6 +61,35 @@ def check_save_is_confirmed(text: str, handles: dict[str, str]) -> list[str]:
     return problems
 
 
+def check_browsing_cannot_edit(handles: dict[str, str]) -> list[str]:
+    """Scrolling a list must not be able to change what the list holds.
+
+    The inventory list used to adjust whatever slot the cursor was over, so any
+    sideways input while browsing a pocket rewrote it - no confirmation, no
+    undo, and on a Colosseum save the item was destroyed outright. Opening a
+    slot is a separate screen now, and this keeps the list screen unable to
+    write: it is a structural guarantee rather than a promise about input.
+    """
+    problems = []
+    writes = ("adjust_inventory(", "gen3_any_set_item_slot(", "save_dirty")
+    browse = handles.get("handle_inventory_edit")
+    if browse is None:
+        return ["handle_inventory_edit is gone; this check needs rewriting"]
+    for call in writes:
+        if call in browse:
+            problems.append(
+                f"handle_inventory_edit contains {call!r}: browsing a pocket "
+                f"must not be able to change it - open the slot first")
+
+    # And the adjustment itself belongs to the slot editor alone.
+    callers = sorted(n for n, b in handles.items() if "adjust_inventory(" in b)
+    if callers != ["handle_inventory_slot"]:
+        problems.append(
+            f"adjust_inventory is reached from {callers}; only "
+            f"handle_inventory_slot may change an item slot")
+    return problems
+
+
 def check_b_goes_back(handles: dict[str, str]) -> list[str]:
     return [f"{name} never reads B, so there is no way back"
             for name, body in sorted(handles.items())
@@ -164,6 +193,7 @@ def main() -> None:
     problems += check_trigger_labels(text)
     problems += check_save_is_confirmed(text, handle_bodies)
     problems += check_b_goes_back(handle_bodies)
+    problems += check_browsing_cannot_edit(handle_bodies)
 
     if checked < 20:
         raise SystemExit(f"only paired {checked} screens; the switch parsing is wrong")
@@ -175,6 +205,7 @@ def main() -> None:
         sys.exit(1)
     print(f"  {checked} screens: footers match their handlers, B always goes back,")
     print( "    the analog triggers carry nothing at all, and saving is confirmed")
+    print( "  browsing a pocket cannot change it: a slot must be opened first")
     print("control map check: PASS")
 
 

@@ -29,7 +29,7 @@
 #include "uinput.h"
 
 #define APP_NAME "PKHeX-GC Gen III"
-#define APP_VERSION "1.0.3"
+#define APP_VERSION "1.0.4"
 #define MAX_ENTRIES 256
 #define MAX_CARD_ENTRIES 64
 #define NAME_LEN 192
@@ -62,6 +62,7 @@ typedef enum UiMode {
     UI_BOXES,
     UI_TRAINER_EDIT,
     UI_INVENTORY_EDIT,
+    UI_INVENTORY_SLOT,
     UI_PKM_EDIT,
     UI_POKEDEX,
     UI_EVENTS,
@@ -172,6 +173,17 @@ static unsigned trainer_edit_field;
 static Gen3Pocket inventory_pocket = GEN3_POCKET_ITEMS;
 static unsigned inventory_slot;
 static unsigned inventory_field; /* 0=item id, 1=quantity */
+
+/*
+ * The open slot's working copy.
+ *
+ * Browsing a pocket used to adjust whatever the cursor was over, so any
+ * sideways input while scrolling rewrote a slot in place. A slot is now opened
+ * before it can be changed, and the change lands here rather than in the save:
+ * the pocket is only written when the edit is accepted, so backing out leaves
+ * the bytes exactly as they were.
+ */
+static uint16_t slot_edit_item, slot_edit_qty;
 
 /* libogc2 calls the memory-card work area CARD_WORKAREA; stock libogc calls
  * it CARD_WORKAREA_SIZE. Both name the same 40 KiB buffer CARD_Init needs. */
@@ -1283,7 +1295,8 @@ static void draw_header(const char *section) {
     gui_rect(0, 0, GUI_W, 58, C_HEADER);
     gui_text(20, 8, 1.75f, C_TEXT, APP_NAME);
     bool edit_screen = mode == UI_SUMMARY || mode == UI_BOXES || mode == UI_TRAINER_EDIT ||
-                       mode == UI_INVENTORY_EDIT || mode == UI_PKM_EDIT;
+                       mode == UI_INVENTORY_EDIT || mode == UI_INVENTORY_SLOT ||
+                       mode == UI_PKM_EDIT;
     if (loaded_from_backup && edit_screen)
         gui_badge(462, 18, "BACKUP", C_YELLOW, C_BADGE_TEXT);
     else if (loaded_from_cart && edit_screen)
@@ -4030,7 +4043,6 @@ static void show_inventory_edit(void) {
     gui_text(38, 103, 0.82f, C_ACCENT, gen3_pocket_name(inventory_pocket));
     unsigned cap=gen3_any_pocket_capacity(&parsed_save,inventory_pocket);
     gui_textf(438,106,0.62f,C_MUTED,"%u slots",cap);
-    gui_badge(523,101,inventory_field==0?"ITEM":"QTY",C_ACCENT,C_BADGE_TEXT);
 
     unsigned first=(inventory_slot/10u)*10u;
     for(unsigned r=0;r<10 && first+r<cap;++r){
@@ -4043,23 +4055,66 @@ static void show_inventory_edit(void) {
         gui_textf(108,y,0.62f,C_TEXT,"%s",gen3_item_name_for(parsed_save.kind,it.item_id));
         gui_textf(390,y,0.62f,C_TEXT,"Qty %u",it.quantity);
         if(it.item_id==0) gui_text(514,y,0.58f,C_MUTED,"empty");
+        if(sel) gui_text(560,y,0.58f,C_ACCENT,"[A]");
     }
     if (parsed_save.kind == GEN3_KIND_GBA)
         gui_text(38,407,0.52f,C_MUTED,"PC quantities plain; Bag quantities use the save security key where required.");
     else
         gui_textf(38,407,0.52f,C_MUTED,"GameCube pouches store item and quantity big-endian, unmasked. Max %u per slot.",
                   gen3_any_pocket_max_quantity(&parsed_save,inventory_pocket));
-    draw_footer("[STICK] Slot/Change  [DPAD] Pocket  [B] Trainer  [Y] Save  [X] Item/Qty");
+    draw_footer("[STICK] Slot  [DPAD] Pocket  [A] Open slot  [B] Trainer  [Y] Save");
 }
 
-static void adjust_inventory(int direction, bool coarse) {
+/*
+ * One slot, opened for editing.
+ *
+ * Separate from the pocket list on purpose rather than as a flag inside it.
+ * The list screen has no code that can write an item, so no input it receives
+ * - a stray diagonal on the stick included - can alter the save. Changing a
+ * slot means opening it first, and even then nothing is written until the
+ * edit is accepted.
+ */
+static void inventory_open_slot(void) {
     Gen3ItemSlot it={0};
     if(!gen3_any_get_item_slot(&parsed_save,inventory_pocket,inventory_slot,&it)) return;
+    slot_edit_item=it.item_id;
+    slot_edit_qty=it.quantity;
+    mode=UI_INVENTORY_SLOT;
+}
+
+static void show_inventory_slot(void) {
+    char inv_title[64];
+    snprintf(inv_title,sizeof(inv_title),"ITEM SLOT - %s",gen3_pocket_name(inventory_pocket));
+    draw_header(inv_title);
+    gui_panel(74,120,492,250,C_PANEL,C_ACCENT);
+    gui_textf(96,142,1.0f,C_ACCENT,"SLOT %02u",inventory_slot+1);
+    gui_badge(470,142,inventory_field==0?"ITEM":"QTY",C_ACCENT,C_BADGE_TEXT);
+
+    const bool on_item=inventory_field==0;
+    gui_text(96,192,0.66f,on_item?C_ACCENT:C_MUTED,"Item");
+    char shown[64];
+    fit_text_px(shown,sizeof(shown),gen3_item_name_for(parsed_save.kind,slot_edit_item),300.0f,0.72f);
+    gui_text(200,190,0.72f,on_item?C_TEXT:C_MUTED,shown);
+    gui_textf(200,214,0.58f,C_MUTED,"id %u",slot_edit_item);
+
+    gui_text(96,260,0.66f,on_item?C_MUTED:C_ACCENT,"Quantity");
+    gui_textf(200,258,0.72f,on_item?C_MUTED:C_TEXT,"%u",slot_edit_qty);
+    gui_textf(200,282,0.58f,C_MUTED,"max %u",
+              gen3_any_pocket_max_quantity(&parsed_save,inventory_pocket));
+
+    gui_text(96,322,0.58f,C_GREEN,"Nothing is written until you press [A].");
+    draw_footer("[STICK] Change  [DPAD] Change by ten  [X] Item/Qty  [A] Apply  [B] Cancel");
+}
+
+/* Only ever reached from the slot editor, and only ever touches its working
+ * copy. The pocket itself is written in handle_inventory_slot, on A. */
+static void adjust_inventory(int direction, bool coarse) {
     const long long step=coarse?10:1;
     const long long max_qty=gen3_any_pocket_max_quantity(&parsed_save,inventory_pocket);
-    if(inventory_field==0) it.item_id=gen3_item_id_step(parsed_save.kind,it.item_id,direction,(unsigned)step);
-    else it.quantity=(uint16_t)clamp_ll((long long)it.quantity+(long long)direction*step,0,max_qty);
-    if(gen3_any_set_item_slot(&parsed_save,inventory_pocket,inventory_slot,it.item_id,it.quantity)) save_dirty=true;
+    if(inventory_field==0)
+        slot_edit_item=gen3_item_id_step(parsed_save.kind,slot_edit_item,direction,(unsigned)step);
+    else
+        slot_edit_qty=(uint16_t)clamp_ll((long long)slot_edit_qty+(long long)direction*step,0,max_qty);
 }
 
 static const char *pkm_basic_labels[] = {"Species", "Held item", "Experience", "Friendship", "PID", "Trainer ID", "Secret ID", "Level"};
@@ -4519,6 +4574,7 @@ static void render_current(void) {
         case UI_BOXES: show_boxes(); break;
         case UI_TRAINER_EDIT: show_trainer_edit(); break;
         case UI_INVENTORY_EDIT: show_inventory_edit(); break;
+        case UI_INVENTORY_SLOT: show_inventory_slot(); break;
         case UI_PKM_EDIT: show_pkm_edit(); break;
         case UI_POKEDEX: show_pokedex(); break;
         case UI_EVENTS: show_events(); break;
@@ -4806,6 +4862,11 @@ static void handle_trainer_edit(u32 down) {
     if (down & PAD_BUTTON_B) mode=UI_TOOLS;
 }
 
+/*
+ * Browsing a pocket. This handler cannot change a single byte of the save -
+ * it has no call that writes one - which is the point: scrolling a list is
+ * not an edit, whatever the stick reports on the way past.
+ */
 static void handle_inventory_edit(u32 down) {
     unsigned cap=gen3_any_pocket_capacity(&parsed_save,inventory_pocket);
     if(!cap){ inventory_step_pocket(1); cap=gen3_any_pocket_capacity(&parsed_save,inventory_pocket); }
@@ -4813,11 +4874,24 @@ static void handle_inventory_edit(u32 down) {
     inventory_slot=nav_index(down,inventory_slot,cap);
     if(nav_page_prev(down)) inventory_step_pocket(-1);
     if(nav_page_next(down)) inventory_step_pocket(1);
-    if(down & PAD_BUTTON_X) inventory_field^=1u;
-    const int fine = nav_fine(down);
-    if(fine) adjust_inventory(fine, false);
+    if(down & PAD_BUTTON_A) inventory_open_slot();
     if(down & PAD_BUTTON_Y) request_save();
     if(down & PAD_BUTTON_B) mode=UI_TRAINER_EDIT;
+}
+
+static void handle_inventory_slot(u32 down) {
+    if(down & PAD_BUTTON_X) inventory_field^=1u;
+    const int fine=nav_fine(down);
+    if(fine) adjust_inventory(fine,false);
+    if((down & UI_COARSE) && (down & PAD_BUTTON_LEFT)) adjust_inventory(-1,true);
+    if((down & UI_COARSE) && (down & PAD_BUTTON_RIGHT)) adjust_inventory(1,true);
+    if(down & PAD_BUTTON_A){
+        if(gen3_any_set_item_slot(&parsed_save,inventory_pocket,inventory_slot,
+                                  slot_edit_item,slot_edit_qty)) save_dirty=true;
+        mode=UI_INVENTORY_EDIT;
+    }
+    /* Cancel is free: the pocket was never touched. */
+    if(down & PAD_BUTTON_B) mode=UI_INVENTORY_EDIT;
 }
 
 static void handle_pkm_edit(u32 down) {
@@ -4962,6 +5036,7 @@ int main(int argc, char **argv) {
             case UI_EVENTS: handle_events(down); break;
             case UI_TRAINER_EDIT: handle_trainer_edit(down); break;
             case UI_INVENTORY_EDIT: handle_inventory_edit(down); break;
+            case UI_INVENTORY_SLOT: handle_inventory_slot(down); break;
             case UI_PKM_EDIT: handle_pkm_edit(down); break;
         case UI_POKEDEX: handle_pokedex(down); break;
             case UI_TOOLS: handle_tools(down); break;

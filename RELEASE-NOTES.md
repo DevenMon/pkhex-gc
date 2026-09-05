@@ -1,39 +1,43 @@
-# PKHeX-GC 1.0.3
+# PKHeX-GC 1.0.4
 
-Two inventory bugs, both of which destroyed data. **If you have edited a
-Colosseum or XD inventory in an earlier build, check it against your backup.**
+**Use this instead of 1.0.3.** That release narrowed the inventory bug without
+closing it: browsing a pocket could still change the slot under the cursor.
 
-## Scrolling a list no longer edits it
+## A slot has to be opened before anything about it can change
 
-Each analog stick axis was tested on its own, so pushing the stick down and
-even slightly sideways reported **down and right at the same time**. On the
-inventory screen up and down move the cursor while left and right change the
-value under it — so scrolling through a pocket quietly rewrote the entries it
-passed. The stick's gate is octagonal and the threshold was a third of full
-deflection, so this was not an unusual grip; it is how a thumb normally pushes
-down.
+Left and right adjusted whatever the cursor was sitting on, at any time, while
+scrolling a pocket. Nothing gated it, nothing confirmed it and nothing could
+undo it — and on a Colosseum or XD save the item was destroyed outright rather
+than merely nudged. 1.0.3 stopped the stick reporting two directions at once,
+which removed one way to trigger it and left the rest.
 
-The stick now reports at most one direction: the axis it leans along wins
-outright. The D-pad was never affected — both of its directions mean
-navigation, never a value change.
+Opening a slot is now its own screen:
 
-## Colosseum and XD items are no longer destroyed
+- The pocket list only browses. Up and down move the cursor, the D-pad changes
+  pocket, **A** opens the slot under the cursor. The list screen contains no
+  code that can write an item, so no input it receives can alter the save.
+- The slot editor changes a working copy. **X** switches between the item and
+  the quantity, the stick changes the selected one, the D-pad changes it by
+  ten. **A** applies the change; **B** cancels it.
 
-Item ids are two ranges. Every game shares the cartridge items at 0–376, and
-Colosseum and XD keep their own — every key item, cologne and disc — at 500 and
-up, with 377–499 meaning nothing at all.
+Nothing is written to the save until you press A, so backing out of a slot
+leaves the bytes exactly as they were.
 
-The editor clamped to 0–376 regardless of the save. So a single press on any
-Colosseum or XD item above 500 dropped it to 376, and the item was gone.
-Combined with the bug above, scrolling a Colosseum pocket was enough to do it
-without ever pressing sideways deliberately.
+A build test now enforces this rather than trusting it: the pocket list is
+checked for any call that could write a slot, and the adjustment itself is
+checked to be reachable only from the slot editor. It was confirmed to fail
+against the old arrangement.
 
-Stepping now walks both ranges as one list: every id stays reachable, the dead
-range in between is skipped rather than landed on, and each game stops at the
-end of its own item list.
+## Also still in this release, from 1.0.3
 
-Both fixes have regression tests that were confirmed to fail against the old
-code.
+Colosseum and XD item ids live at 500 and up, while the cartridge items every
+game shares are at 0–376 and 377–499 are not items at all. The editor clamped
+to 0–376 whatever the save, so one press on a GameCube item destroyed it.
+Stepping now walks both ranges as one list, skipping the dead range between
+them and stopping at the end of each game's own item list.
+
+The analog stick also still reports at most one direction, so a lean off-axis
+can no longer count as two.
 
 ---
 
